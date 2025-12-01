@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runway FoV Calculator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Custom styles for the app */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Style for number inputs */
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[typeT="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Custom focus styles for better visibility in dark mode */
+        select:focus, input:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); /* blue-500 with 50% opacity */
+            outline: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <!-- Header -->
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Runway FoV Calculator</h1>
+            <p class="text-lg md:text-xl text-blue-300">Minimum Field of View for ATC Cameras</p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="flex flex-col lg:flex-row gap-8">
+
+            <!-- Left Column: Schematic -->
+            <section class="lg:w-1/3 w-full bg-gray-800 p-6 rounded-2xl shadow-xl">
+                <h2 class="text-2xl font-semibold mb-4 text-center">Schematic (Top-Down View)</h2>
+                <div class="w-full h-full flex items-center justify-center">
+                    <svg viewBox="0 0 400 300" class="w-full h-auto max-w-lg" aria-labelledby="schematicTitle" role="img">
+                        <title id="schematicTitle">Diagram showing the runway, ATC tower, and field of view.</title>
+                        
+                        <!-- Definitions for markers -->
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#93c5fd" />
+                            </marker>
+                        </defs>
+
+                        <!-- ATC Tower -->
+                        <circle cx="200" cy="50" r="8" fill="#f87171" />
+                        <text x="200" y="35" font-size="12" fill="white" text-anchor="middle">ATC Tower</text>
+
+                        <!-- Runway Line -->
+                        <line x1="50" y1="250" x2="350" y2="250" stroke="white" stroke-width="3" />
+                        
+                        <!-- Runway Ends -->
+                        <text x="50" y="270" font-size="12" fill="white" text-anchor="middle">Runway End A</text>
+                        <text x="350" y="270" font-size="12" fill="white" text-anchor="middle">Runway End B</text>
+
+                        <!-- Distance (d) Line -->
+                        <line x1="200" y1="50" x2="200" y2="250" stroke="#93c5fd" stroke-width="1.5" stroke-dasharray="5,5" />
+                        <text x="210" y="150" font-size="12" fill="#93c5fd" dominant-baseline="middle">Distance (d)</text>
+
+                        <!-- FoV Lines -->
+                        <line x1="200" y1="50" x2="50" y2="250" stroke="#a7f3d0" stroke-width="1.5" />
+                        <line x1="200" y1="50" x2="350" y2="250" stroke="#a7f3d0" stroke-width="1.5" />
+
+                        <!-- FoV Arc -->
+                        <path d="M 160 90 A 50 50 0 0 1 240 90" stroke="#a7f3d0" stroke-width="1.5" fill="none" />
+                        <text x="200" y="85" font-size="12" fill="#a7f3d0" text-anchor="middle">Min. FoV</text>
+
+                        <!-- Length (x) Lines -->
+                        <line x1="50" y1="280" x2="350" y2="280" stroke="#fcd34d" stroke-width="1.5" marker-start="url(#arrowhead)" marker-end="url(#arrowhead)" />
+                        <text x="200" y="295" font-size="12" fill="#fcd34d" text-anchor="middle">Runway Length (x)</text>
+
+                        <!-- Half-Length (x/2) -->
+                        <line x1="200" y1="240" x2="350" y2="240" stroke="gray" stroke-width="1" stroke-dasharray="3,3" />
+                        <text x="275" y="230" font-size="12" fill="gray" text-anchor="middle">x / 2</text>
+                    </svg>
+                </div>
+            </section>
+
+            <!-- Right Column: Calculator -->
+            <section class="lg:w-2/3 w-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold">Runway Configurations</h2>
+                    <button id="addRunwayBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-all duration-200">
+                        + Add Runway
+                    </button>
+                </div>
+
+                <!-- Dynamic list of runway calculators -->
+                <div id="runwayList" class="space-y-4">
+                    <!-- Runway cards will be injected here by JavaScript -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const runwayList = document.getElementById('runwayList');
+            const addRunwayBtn = document.getElementById('addRunwayBtn');
+            let runwayCounter = 0;
+            const APP_STORAGE_KEY = 'runwayCalculatorState';
+
+            // --- State Management ---
+
+            function saveState() {
+                const runways = [];
+                document.querySelectorAll('.runway-card').forEach(card => {
+                    const runwayId = card.dataset.id;
+                    if (!runwayId) return;
+
+                    const isVertical = document.getElementById(`vertical-toggle-${runwayId}`).checked;
+
+                    runways.push({
+                        id: runwayId,
+                        name: document.getElementById(`name-${runwayId}`).value,
+                        calcMode: document.getElementById(`calc-mode-${runwayId}`).value,
+                        length: document.getElementById(`length-${runwayId}`).value,
+                        lengthUnit: document.getElementById(`length-unit-${runwayId}`).value,
+                        distance: document.getElementById(`distance-${runwayId}`).value,
+                        distanceUnit: document.getElementById(`distance-unit-${runwayId}`).value,
+                        fov: document.getElementById(`fov-${runwayId}`).value,
+                        isVerticalEnabled: isVertical,
+                        height: isVertical ? document.getElementById(`height-${runwayId}`).value : '',
+                        heightUnit: isVertical ? document.getElementById(`height-unit-${runwayId}`).value : 'meters'
+                    });
+                });
+                
+                const state = {
+                    runways: runways,
+                    counter: runwayCounter // Save the global counter
+                };
+                localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state));
+            }
+
+            function loadState() {
+                const savedState = localStorage.getItem(APP_STORAGE_KEY);
+                if (!savedState) {
+                    addRunway(); // Add one default runway if no state
+                    return;
+                }
+
+                const state = JSON.parse(savedState);
+                runwayCounter = state.counter || 0; // Restore counter
+
+                if (state.runways && state.runways.length > 0) {
+                    state.runways.forEach(runwayData => {
+                        addRunway(runwayData);
+                    });
+                } else {
+                    addRunway(); // Add one default if state is empty
+                }
+            }
+
+            // --- Core Functions ---
+
+            /**
+             * Adds a new runway card to the list.
+             * @param {object | null} runwayData - Pre-filled data for a runway (from localStorage).
+             */
+            function addRunway(runwayData = null) {
+                const runwayId = runwayData ? runwayData.id : ++runwayCounter;
+
+                // Set default values if new, or use saved data
+                const nameValue = runwayData ? runwayData.name : '';
+                const calcMode = runwayData ? runwayData.calcMode : 'fov';
+                const lengthValue = runwayData ? runwayData.length : '';
+                const distanceValue = runwayData ? runwayData.distance : '';
+                const fovValue = runwayData ? runwayData.fov : '';
+                const lengthUnit = runwayData ? runwayData.lengthUnit : 'meters';
+                const distanceUnit = runwayData ? runwayData.distanceUnit : 'meters';
+                const isVerticalEnabled = runwayData ? runwayData.isVerticalEnabled : false;
+                const heightValue = runwayData ? runwayData.height : '';
+                const heightUnit = runwayData ? runwayData.heightUnit : 'meters';
+                
+                const card = document.createElement('div');
+                card.className = 'runway-card bg-gray-800 p-6 rounded-2xl shadow-xl transition-all duration-300'; // Changed p-5 to p-6
+                card.dataset.id = runwayId; // Set ID on the card itself for easier reference
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <input type="text" id="name-${runwayId}" data-id="${runwayId}" class="runway-name-input text-xl font-semibold text-white bg-transparent border-b-2 border-gray-700 focus:border-blue-500 rounded-none p-1 w-2/3" value="${nameValue}" placeholder="Runway ${runwayId} (e.g., 09L/27R)">
+                        <button class="remove-runway text-red-400 hover:text-red-300 font-medium py-1 px-3 rounded-md transition-all duration-200" data-id="${runwayId}">
+                            Remove
+                        </button>
+                    </div>
+
+                    <!-- Calculation Mode -->
+                    <div class="mb-6"> <!-- Changed mb-4 to mb-6 -->
+                        <label for="calc-mode-${runwayId}" class="block text-sm font-medium text-gray-300 mb-1">Calculation Mode</label>
+                        <select id="calc-mode-${runwayId}" data-id="${runwayId}" class="calc-mode-select block w-full bg-gray-700 border border-gray-600 rounded-lg shadow-sm p-2.5 text-white focus:ring-blue-500 focus:border-blue-500">
+                            <option value="fov" ${calcMode === 'fov' ? 'selected' : ''}>Calculate FoV (Given Length & Distance)</option>
+                            <option value="length" ${calcMode === 'length' ? 'selected' : ''}>Calculate Length (x) (Given FoV & Distance)</option>
+                            <option value="distance" ${calcMode === 'distance' ? 'selected' : ''}>Calculate Distance (d) (Given FoV & Length)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6"> <!-- Changed gap-4 to gap-6 -->
+                        <!-- Runway Length Input -->
+                        <div>
+                            <label for="length-${runwayId}" class="block text-sm font-medium text-gray-300">Runway Length (x)</label>
+                            <div class="flex gap-3 mt-1"> <!-- Changed gap-2 to gap-3 -->
+                                <input type="number" id="length-${runwayId}" data-id="${runwayId}" class="runway-input block w-2/3 bg-gray-700 border border-gray-600 rounded-lg shadow-sm p-2.5 text-white focus:ring-blue-500 focus:border-blue-500" value="${lengthValue}" placeholder="e.g., 3000">
+                                <select id="length-unit-${runwayId}" data-id="${runwayId}" class="runway-unit-input block w-1/3 bg-gray-700 border border-gray-600 rounded-lg shadow-sm p-2.5 text-white focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="meters" ${lengthUnit === 'meters' ? 'selected' : ''}>m</option>
+                                    <option value="feet" ${lengthUnit === 'feet' ? 'selected' : ''}>ft</option>
+                                </select>
+                            </div>
+                            <p id="length-error-${runwayId}" class="text-red-400 text-sm mt-1 h-4"></p>
+                        </div>
+                        
+                        <!-- ATC Distance Input -->
+                        <div>
+                            <label for="distance-${runwayId}" class="block text-sm font-medium text-gray-300">ATC Distance (d)</label>
+                            <div class="flex gap-3 mt-1"> <!-- Changed gap-2 to gap-3 -->
+                                <input type="number" id="distance-${runwayId}" data-id="${runwayId}" class="runway-input block w-2/3 bg-gray-700 border border-gray-600 rounded-lg shadow-sm p-2.5 text-white focus:ring-blue-500 focus:border-blue-500" value="${distanceValue}" placeholder="e.g., 500">
+                                <select id="distance-unit-${runwayId}" data-id="${runwayId}" class="runway-unit-input block w-1/3 bg-gray-700 border border-gray-600 rounded-lg shadow-sm p-2.5 text-white focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="meters" ${distanceUnit === 'meters' ? 'selected' : ''}>m</option>
+                                    <option value="feet" ${distanceUnit === 'feet' ? 'selected' : ''}>ft</option>
+                                </select>
+                            </div>
+                            <p id="distance-error-${runwayId}" class="text-red-400 text-sm mt-1 h-4"></p>
+                        </div>
+
+                        <!-- FoV Input -->
+                        <div>
+                            <label for="fov-${runwayId}" class="block text-sm font-medium text-gray-300">Horizontal FoV (°) </label>
+                            <div class="flex gap-3 mt-1"> <!-- Changed gap-2 to gap-3 -->
+                                <input type="number" id="fov-${runwayId}" data-id="${runwayId}" class="runway-input block w-full bg-gray-700 border border-gray-600 rounded-lg shadow-sm p-2.5 text-white focus:ring-blue-500 focus:border-blue-500" value="${fovValue}" placeholder="e.g., 90">
+                            </div>
+                            <p id="fov-error-${runwayId}" class="text-red-400 text-sm mt-1 h-4"></p>
+                        </div>
+                    </div>
+
+                    <!-- Optional Vertical Calculation -->
+                    <div class="mt-6"> <!-- Changed mt-5 to mt-6 -->
+                        <div class="flex items-center">
+                            <input id="vertical-toggle-${runwayId}" data-id="${runwayId}" type="checkbox" class="vertical-toggle h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500" ${isVerticalEnabled ? 'checked' : ''}>
+                            <label for="vertical-toggle-${runwayId}" class="ml-2 text-sm font-medium text-gray-300">Include Vertical Calculation (V-FoV)</label>
+                        </div>
+
+                        <div id="vertical-section-${runwayId}" class="mt-4 ${isVerticalEnabled ? '' : 'hidden'} bg-gray-900 p-4 rounded-lg space-y-6"> <!-- Changed space-y-4 to space-y-6 -->
+                            <!-- Tower Height Input -->
+                            <div>
+                                <label for="height-${runwayId}" class="block text-sm font-medium text-gray-300">ATC Tower Height (h)</label>
+                                <div class="flex gap-3 mt-1"> <!-- Changed gap-2 to gap-3 -->
+                                    <input type="number" id="height-${runwayId}" data-id="${runwayId}" class="runway-input block w-2/3 bg-gray-700 border border-gray-600 rounded-lg shadow-sm p-2.5 text-white focus:ring-blue-500 focus:border-blue-500" value="${heightValue}" placeholder="e.g., 60">
+                                    <select id="height-unit-${runwayId}" data-id="${runwayId}" class="runway-unit-input block w-1/3 bg-gray-700 border border-gray-600 rounded-lg shadow-sm p-2.5 text-white focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="meters" ${heightUnit === 'meters' ? 'selected' : ''}>m</option>
+                                        <option value="feet" ${heightUnit === 'feet' ? 'selected' : ''}>ft</option>
+                                    </select>
+                                </div>
+                                <p id="height-error-${runwayId}" class="text-red-400 text-sm mt-1 h-4"></p>
+                            </div>
+                            <!-- V-FoV Result -->
+                            <div>
+                                <span class="text-gray-400">Minimum Required V-FoV:</span>
+                                <span id="vfovResult-${runwayId}" class="block text-2xl font-bold text-cyan-400">-- °</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                runwayList.appendChild(card);
+
+                updateInputStates(runwayId); // Enable/disable correct fields
+
+                if (runwayData) {
+                    calculateAll(runwayId); // Calculate all values for loaded runways
+                }
+            }
+
+            /**
+             * Enable/disables inputs based on calculation mode
+             * @param {string} runwayId
+             */
+            function updateInputStates(runwayId) {
+                const calcMode = document.getElementById(`calc-mode-${runwayId}`).value;
+                const lengthInput = document.getElementById(`length-${runwayId}`);
+                const distanceInput = document.getElementById(`distance-${runwayId}`);
+                const fovInput = document.getElementById(`fov-${runwayId}`);
+
+                // Reset all
+                [lengthInput, distanceInput, fovInput].forEach(input => {
+                    input.disabled = false;
+                    input.classList.remove('bg-gray-900', 'text-green-400', 'font-bold');
+                    input.classList.add('bg-gray-700');
+                });
+
+                let targetInput;
+                switch (calcMode) {
+                    case 'fov':
+                        targetInput = fovInput;
+                        break;
+                    case 'length':
+                        targetInput = lengthInput;
+                        break;
+                    case 'distance':
+                        targetInput = distanceInput;
+                        break;
+                }
+
+                if (targetInput) {
+                    targetInput.disabled = true;
+                    targetInput.classList.add('bg-gray-900', 'text-green-400', 'font-bold');
+                    targetInput.classList.remove('bg-gray-700');
+                }
+            }
+
+
+            /**
+             * Main calculation controller.
+             * @param {string} runwayId - The ID of the runway card.
+             */
+            function calculateAll(runwayId) {
+                const calcMode = document.getElementById(`calc-mode-${runwayId}`).value;
+                
+                const lengthInput = document.getElementById(`length-${runwayId}`);
+                const lengthUnitInput = document.getElementById(`length-unit-${runwayId}`);
+                const distanceInput = document.getElementById(`distance-${runwayId}`);
+                const distanceUnitInput = document.getElementById(`distance-unit-${runwayId}`);
+                const fovInput = document.getElementById(`fov-${runwayId}`);
+
+                const lengthError = document.getElementById(`length-error-${runwayId}`);
+                const distanceError = document.getElementById(`distance-error-${runwayId}`);
+                const fovError = document.getElementById(`fov-error-${runwayId}`);
+
+                // Clear previous errors
+                [lengthError, distanceError, fovError].forEach(err => err.textContent = '');
+
+                // Read all values
+                let length = parseFloat(lengthInput.value);
+                let distance = parseFloat(distanceInput.value);
+                let fov = parseFloat(fovInput.value);
+                
+                const lengthUnit = lengthUnitInput.value;
+                const distanceUnit = distanceUnitInput.value;
+
+                // --- Validation ---
+                let isValid = true;
+                if (calcMode !== 'length' && (isNaN(length) || length <= 0)) {
+                    lengthError.textContent = 'Must be > 0';
+                    isValid = false;
+                }
+                if (calcMode !== 'distance' && (isNaN(distance) || distance <= 0)) {
+                    distanceError.textContent = 'Must be > 0';
+                    isValid = false;
+                }
+                if (calcMode !== 'fov' && (isNaN(fov) || fov <= 0 || fov >= 180)) {
+                    fovError.textContent = 'Must be > 0 & < 180';
+                    isValid = false;
+                }
+
+                if (!isValid) {
+                    // Clear the result field if inputs are bad
+                    switch (calcMode) {
+                        case 'fov': fovInput.value = ''; break;
+                        case 'length': lengthInput.value = ''; break;
+                        case 'distance': distanceInput.value = ''; break;
+                    }
+                    calculateVFov(runwayId, null); // Clear V-FoV result
+                    return;
+                }
+
+                // --- Unit Conversion ---
+                // Convert all inputs to meters / radians for calculation
+                const lengthInMeters = (lengthUnit === 'feet') ? length * 0.3048 : length;
+                const distanceInMeters = (distanceUnit === 'feet') ? distance * 0.3048 : distance;
+                const fovInRadians = fov * (Math.PI / 180);
+
+                // --- Core Calculation ---
+                let result;
+                switch (calcMode) {
+                    case 'fov':
+                        // FoV = 2 * arctan( (runwayLength / 2) / perpendicularDistance )
+                        const halfLength = lengthInMeters / 2;
+                        const halfAngleRadians = Math.atan(halfLength / distanceInMeters);
+                        const fullAngleDegrees = (2 * halfAngleRadians) * (180 / Math.PI);
+                        fovInput.value = fullAngleDegrees.toFixed(2);
+                        break;
+                    
+                    case 'length':
+                        // x = 2 * d * tan(fov / 2)
+                        const halfFov = fovInRadians / 2;
+                        const lengthMeters = 2 * distanceInMeters * Math.tan(halfFov);
+                        // Convert result back to the selected unit
+                        result = (lengthUnit === 'feet') ? lengthMeters / 0.3048 : lengthMeters;
+                        lengthInput.value = result.toFixed(2);
+                        break;
+                    
+                    case 'distance':
+                        // d = (x / 2) / tan(fov / 2)
+                        const halfLen = lengthInMeters / 2;
+                        const halfFovRad = fovInRadians / 2;
+                        const distanceMeters = halfLen / Math.tan(halfFovRad);
+                        // Convert result back to the selected unit
+                        result = (distanceUnit === 'feet') ? distanceMeters / 0.3048 : distanceMeters;
+                        distanceInput.value = result.toFixed(2);
+                        break;
+                }
+
+                // --- Post-Calculation ---
+                // Get the final calculated values (in meters) to pass to V-FoV
+                const finalLengthMeters = (calcMode === 'length') ? result * (lengthUnit === 'feet' ? 0.3048 : 1) : lengthInMeters;
+                const finalDistanceMeters = (calcMode === 'distance') ? result * (distanceUnit === 'feet' ? 0.3048 : 1) : distanceInMeters;
+
+                calculateVFov(runwayId, {
+                    lengthInMeters: finalLengthMeters,
+                    distanceInMeters: finalDistanceMeters
+                });
+            }
+
+            /**
+             * Calculates the Vertical FoV (V-FoV)
+             * @param {string} runwayId
+             * @param {object | null} baseParams - { lengthInMeters, distanceInMeters }
+             */
+            function calculateVFov(runwayId, baseParams) {
+                const isVerticalEnabled = document.getElementById(`vertical-toggle-${runwayId}`).checked;
+                const vfovResultDisplay = document.getElementById(`vfovResult-${runwayId}`);
+                
+                if (!isVerticalEnabled) {
+                    vfovResultDisplay.textContent = "-- °";
+                    vfovResultDisplay.classList.remove('text-cyan-400');
+                    vfovResultDisplay.classList.add('text-yellow-400');
+                    return;
+                }
+
+                const heightInput = document.getElementById(`height-${runwayId}`);
+                const heightUnitInput = document.getElementById(`height-unit-${runwayId}`);
+                const heightError = document.getElementById(`height-error-${runwayId}`);
+                
+                heightError.textContent = '';
+                let height = parseFloat(heightInput.value);
+
+                if (!baseParams || isNaN(height) || height <= 0) {
+                    if (isNaN(height) || height <= 0) {
+                        heightError.textContent = 'Must be > 0';
+                    }
+                    vfovResultDisplay.textContent = "-- °";
+                    vfovResultDisplay.classList.remove('text-cyan-400');
+                    vfovResultDisplay.classList.add('text-yellow-400');
+                    return;
+                }
+
+                // Convert height to meters
+                const heightInMeters = (heightUnitInput.value === 'feet') ? height * 0.3048 : height;
+
+                // V-FoV = angle_far - angle_near
+                const { lengthInMeters, distanceInMeters } = baseParams;
+
+                // 1. Distance to farthest point (runway end) from tower base (top-down view)
+                const distToRunwayEnd = Math.sqrt(Math.pow(distanceInMeters, 2) + Math.pow(lengthInMeters / 2, 2));
+
+                // 2. Angle to nearest point (centerline opposite tower)
+                const angleNear = Math.atan(distanceInMeters / heightInMeters);
+
+                // 3. Angle to farthest point (runway end)
+                const angleFar = Math.atan(distToRunwayEnd / heightInMeters);
+
+                // 4. V-FoV is the difference
+                const vfovRadians = angleFar - angleNear;
+                const vfovDegrees = vfovRadians * (180 / Math.PI);
+
+                vfovResultDisplay.textContent = `${vfovDegrees.toFixed(2)} °`;
+                vfovResultDisplay.classList.add('text-cyan-400');
+                vfovResultDisplay.classList.remove('text-yellow-400');
+            }
+
+
+            // --- Event Listeners ---
+            
+            // Add runway button
+            addRunwayBtn.addEventListener('click', () => {
+                addRunway();
+                saveState(); // Save after adding a new one
+            });
+
+            // Use event delegation for input changes and remove buttons
+            runwayList.addEventListener('input', (e) => {
+                const target = e.target;
+                const runwayId = target.dataset.id;
+                if (!runwayId) return;
+
+                // Handle calculation mode change
+                if (target.classList.contains('calc-mode-select')) {
+                    updateInputStates(runwayId);
+                    // Don't calculate here, let user fill inputs
+                }
+
+                // Handle vertical toggle change
+                if (target.classList.contains('vertical-toggle')) {
+                    document.getElementById(`vertical-section-${runwayId}`).classList.toggle('hidden');
+                    calculateAll(runwayId); // Recalculate V-FoV
+                }
+
+                // Calculate if a number input or unit select was changed
+                if (target.classList.contains('runway-input') || target.classList.contains('runway-unit-input')) {
+                    calculateAll(runwayId);
+                }
+                
+                // Save state on any input change
+                if (target.classList.contains('runway-input') || 
+                    target.classList.contains('runway-unit-input') || 
+                    target.classList.contains('runway-name-input') ||
+                    target.classList.contains('calc-mode-select') ||
+                    target.classList.contains('vertical-toggle')) {
+                    saveState();
+                }
+            });
+
+            runwayList.addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-runway')) {
+                    const card = e.target.closest('.runway-card');
+                    if (card) {
+                        // Simple visual confirmation before removing
+                        card.style.opacity = '0.5';
+                        card.style.transform = 'scale(0.95)';
+                        setTimeout(() => {
+                            card.remove();
+                            saveState(); // Save after removing
+                        }, 300);
+                    }
+                }
+            });
+
+            // Load initial state
+            loadState();
+        });
+    </script>
+
+</body>
+</html>

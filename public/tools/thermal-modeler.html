@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1-Node Payload Thermal Analysis</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js for plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Use the Inter font family */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for Chart.js responsiveness */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        /* Style for unit selectors */
+        .unit-selector {
+            @apply text-sm bg-gray-50 border border-gray-300 rounded-r-md text-gray-700 focus:ring-blue-500 focus:border-blue-500;
+        }
+        .main-input {
+            @apply block w-full rounded-l-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500;
+        }
+        .full-input {
+             @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">1-Node Orbital Thermal Modeler</h1>
+            <p class="mt-2 text-gray-600">An engineering tool to solve the 1-node energy balance equation for a satellite payload, including orbital mechanics and transient analysis.</p>
+        </div>
+
+        <!-- Main Content: Inputs and Outputs -->
+        <div class="md:flex md:space-x-8">
+
+            <!-- === LEFT COLUMN: INPUTS === -->
+            <div class="md:w-1/3 space-y-6">
+                
+                <!-- Payload Properties -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">1. Payload Properties</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="payload_name" class="block text-sm font-medium text-gray-700">Payload Name</label>
+                            <input type="text" id="payload_name" value="My Payload (e.g., Star Tracker)" class="mt-1 full-input">
+                        </div>
+                        <div>
+                            <label for="mass" class="block text-sm font-medium text-gray-700" title="Total mass of the isothermal node.">Mass</label>
+                            <div class="mt-1 flex">
+                                <input type="number" id="mass" value="5" class="main-input">
+                                <select id="mass_unit" class="unit-selector">
+                                    <option value="kg" selected>kg</option>
+                                    <option value="g">g</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="cp" class="block text-sm font-medium text-gray-700" title="Specific Heat Capacity. Aluminum is ~900 J/kg-K.">Specific Heat, C_p</label>
+                            <div class="mt-1 flex">
+                                <input type="number" id="cp" value="900" class="main-input">
+                                <select id="cp_unit" class="unit-selector">
+                                    <option value="J/kg-K" selected>J/kg-K</option>
+                                    <option value="J/g-C">J/g-°C</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orbital Parameters -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">2. Orbital Parameters</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="altitude" class="block text-sm font-medium text-gray-700" title="Circular orbit altitude above Earth's surface. ISS is ~400 km.">Orbital Altitude</label>
+                             <div class="mt-1 flex">
+                                <input type="number" id="altitude" value="550" class="main-input">
+                                <select id="altitude_unit" class="unit-selector">
+                                    <option value="km" selected>km</option>
+                                    <option value="mi">mi</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="eclipse_dur" class="block text-sm font-medium text-gray-700" title="Maximum duration in Earth's shadow. A typical LEO value is ~36 min.">Max Eclipse Duration (minutes)</label>
+                            <input type="number" id="eclipse_dur" value="36" class="mt-1 full-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thermal Optical Properties -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">3. Thermal Optical Properties</h2>
+                    <p class="text-sm text-gray-500 mb-4">Effective, area-weighted average properties.</p>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="alpha" class="block text-sm font-medium text-gray-700">Average Solar Absorptivity (α)</label>
+                            <input type="number" id="alpha" value="0.25" step="0.01" min="0" max="1" class="mt-1 full-input">
+                        </div>
+                        <div>
+                            <label for="epsilon" class="block text-sm font-medium text-gray-700">Average IR Emissivity (ε)</label>
+                            <input type="number" id="epsilon" value="0.8" step="0.01" min="0" max="1" class="mt-1 full-input">
+                        </div>
+                        <div>
+                            <label for="a_sun" class="block text-sm font-medium text-gray-700">Avg. Area Facing Sun (A_sun)</label>
+                            <div class="mt-1 flex">
+                                <input type="number" id="a_sun" value="0.01" step="0.01" class="main-input">
+                                <select id="a_sun_unit" class="unit-selector">
+                                    <option value="m2" selected>m²</option>
+                                    <option value="cm2">cm²</option>
+                                    <option value="ft2">ft²</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="a_earth" class="block text-sm font-medium text-gray-700">Avg. Area Facing Earth (A_earth)</label>
+                            <div class="mt-1 flex">
+                                <input type="number" id="a_earth" value="0.01" step="0.01" class="main-input">
+                                <select id="a_earth_unit" class="unit-selector">
+                                    <option value="m2" selected>m²</option>
+                                    <option value="cm2">cm²</option>
+                                    <option value="ft2">ft²</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="a_rad" class="block text-sm font-medium text-gray-700">Total Radiating Area (A_rad)</label>
+                            <div class="mt-1 flex">
+                                <input type="number" id="a_rad" value="0.06" step="0.01" class="main-input">
+                                <select id="a_rad_unit" class="unit-selector">
+                                    <option value="m2" selected>m²</option>
+                                    <option value="cm2">cm²</option>
+                                    <option value="ft2">ft²</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis Cases (Hot/Cold) -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">4. Analysis Cases & Loads</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Hot Case -->
+                        <div>
+                            <h3 class="font-semibold text-lg text-red-600">Hot Case</h3>
+                            <div class="mt-2">
+                                <label for="power_hot" class="block text-sm font-medium text-gray-700">Internal Power (W)</label>
+                                <input type="number" id="power_hot" value="10" class="mt-1 full-input">
+                            </div>
+                            <div class="mt-2">
+                                <label for="mount_temp_hot" class="block text-sm font-medium text-gray-700">Mount Temp</label>
+                                <div class="mt-1 flex">
+                                    <input type="number" id="mount_temp_hot" value="40" class="main-input">
+                                    <select id="mount_temp_hot_unit" class="unit-selector">
+                                        <option value="C" selected>°C</option>
+                                        <option value="F">°F</option>
+                                        <option value="K">K</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Cold Case -->
+                        <div>
+                            <h3 class="font-semibold text-lg text-blue-600">Cold Case</h3>
+                            <div class="mt-2">
+                                <label for="power_cold" class="block text-sm font-medium text-gray-700">Internal Power (W)</label>
+                                <input type="number" id="power_cold" value="2" class="mt-1 full-input">
+                            </div>
+                            <div class="mt-2">
+                                <label for="mount_temp_cold" class="block text-sm font-medium text-gray-700">Mount Temp</label>
+                                <div class="mt-1 flex">
+                                    <input type="number" id="mount_temp_cold" value="-10" class="main-input">
+                                    <select id="mount_temp_cold_unit" class="unit-selector">
+                                        <option value="C" selected>°C</option>
+                                        <option value="F">°F</option>
+                                        <option value="K">K</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Thermal Couplings -->
+                    <div class="mt-4 border-t pt-4">
+                        <label for="gc" class="block text-sm font-medium text-gray-700" title="Effective conductive coupling (k*A/L) from payload to mount.">Conduction Coupling, G_c (W/K)</label>
+                        <input type="number" id="gc" value="0.5" step="0.1" class="mt-1 full-input">
+                    </div>
+                </div>
+
+                <!-- Operational Limits -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">5. Operational Limits</h2>
+                     <div class="mt-1 flex items-center space-x-2">
+                        <label for="t_op_unit" class="text-sm font-medium text-gray-700">Limit Units:</label>
+                        <select id="t_op_unit" class="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                            <option value="C" selected>°C</option>
+                            <option value="F">°F</option>
+                            <option value="K">K</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label for="t_op_max" class="block text-sm font-medium text-gray-700">Max Operating Temp</label>
+                            <input type="number" id="t_op_max" value="50" class="mt-1 full-input">
+                        </div>
+                        <div>
+                            <label for="t_op_min" class="block text-sm font-medium text-gray-700">Min Operating Temp</label>
+                            <input type="number" id="t_op_min" value="-20" class="mt-1 full-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Environmental Constants -->
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">6. Environmental Constants</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="g_s" class="block text-sm font-medium text-gray-700">Solar Constant, G_s (W/m²)</label>
+                            <input type="number" id="g_s" value="1367" class="mt-1 full-input">
+                        </div>
+                        <div>
+                            <label for="albedo" class="block text-sm font-medium text-gray-700">Albedo Factor, a</label>
+                            <input type="number" id="albedo" value="0.3" step="0.01" class="mt-1 full-input">
+                        </div>
+                        <div>
+                            <label for="e_ir" class="block text-sm font-medium text-gray-700">Earth IR Flux, E_ir (W/m²)</label>
+                            <input type="number" id="e_ir" value="237" class="mt-1 full-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Run Button -->
+                <button id="run_analysis" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all text-xl">
+                    Run Thermal Analysis
+                </button>
+            </div>
+
+            <!-- === RIGHT COLUMN: OUTPUTS === -->
+            <div class="md:w-2/3 mt-8 md:mt-0">
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">Analysis Results</h2>
+                        <div class="flex items-center space-x-2">
+                             <label for="output_unit_selector" class="text-sm font-medium text-gray-700">Output Units:</label>
+                            <select id="output_unit_selector" class="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                                <option value="C" selected>°C</option>
+                                <option value="F">°F</option>
+                                <option value="K">K</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Message Box -->
+                    <div id="message_box" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                        <strong class="font-bold">Error:</strong>
+                        <span class="block sm:inline" id="message_text"></span>
+                    </div>
+
+                    <!-- Results Container -->
+                    <div id="results_container" class="hidden space-y-6">
+                        
+                        <!-- Summary Cards -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-800 mb-3">Transient Simulation Results (Last Orbit)</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Hot Case Margin -->
+                                <div class="bg-red-50 border border-red-200 p-4 rounded-lg">
+                                    <h4 class="text-sm font-medium text-red-800 uppercase tracking-wider text-center">Hot Case</h4>
+                                    <div class="mt-2 flex justify-around items-center">
+                                        <div class="text-center">
+                                            <span class="text-sm text-gray-600">Max Temp</span>
+                                            <p id="t_max" class="text-3xl font-bold text-red-600">--.- °</p>
+                                        </div>
+                                        <div class="text-center">
+                                            <span class="text-sm text-gray-600">Limit</span>
+                                            <p id="t_max_limit" class="text-3xl font-bold text-gray-700">--.- °</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-center mt-3 border-t border-red-200 pt-2">
+                                        <span class="text-sm text-gray-600">Hot Margin</span>
+                                        <p id="t_max_margin" class="text-4xl font-bold text-gray-900">--.- °</p>
+                                    </div>
+                                </div>
+                                <!-- Cold Case Margin -->
+                                <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                                    <h4 class="text-sm font-medium text-blue-800 uppercase tracking-wider text-center">Cold Case</h4>
+                                    <div class="mt-2 flex justify-around items-center">
+                                        <div class="text-center">
+                                            <span class="text-sm text-gray-600">Min Temp</span>
+                                            <p id="t_min" class="text-3xl font-bold text-blue-600">--.- °</p>
+                                        </div>
+                                        <div class="text-center">
+                                            <span class="text-sm text-gray-600">Limit</span>
+                                            <p id="t_min_limit" class="text-3xl font-bold text-gray-700">--.- °</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-center mt-3 border-t border-blue-200 pt-2">
+                                        <span class="text-sm text-gray-600">Cold Margin</span>
+                                        <p id="t_min_margin" class="text-4xl font-bold text-gray-900">--.- °</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Transient Plot -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-800 mb-3">Orbital Temperature Simulation</h3>
+                            <div class="chart-container bg-gray-50 p-2 rounded-lg border">
+                                <canvas id="transient_chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabs -->
+                        <div class="border-b border-gray-200">
+                            <nav class="-mb-px flex space-x-6" id="tabs">
+                                <a href="#" id="tab-summary" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-blue-600 border-blue-500">Summary & Insights</a>
+                                <a href="#" id="tab-ss" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300">Steady-State Bounds</a>
+                                <a href="#" id="tab-report" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300">Generated Report</a>
+                            </nav>
+                        </div>
+
+                        <!-- Tab Content -->
+                        <div id="tab-content">
+                            <!-- Summary Content -->
+                            <div id="content-summary" class="tab-panel space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <!-- Orbital Params -->
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-gray-700 mb-2">Key Parameters</h4>
+                                        <ul class="list-disc list-inside space-y-1 text-gray-600">
+                                            <li>Orbital Period: <span id="orb_period" class="font-medium text-gray-900">-- min</span></li>
+                                            <li>Sunlit Duration: <span id="sun_time" class="font-medium text-gray-900">-- min</span></li>
+                                            <li>Eclipse Duration: <span id="eclipse_time" class="font-medium text-gray-900">-- min</span></li>
+                                            <li>View Factor to Earth: <span id="vf_earth" class="font-medium text-gray-900">--</span></li>
+                                            <li>Thermal Time Constant (τ): <span id="time_constant" class="font-medium text-gray-900">-- min</span></li>
+                                        </ul>
+                                    </div>
+                                    <!-- Heat Loads -->
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-gray-700 mb-2">External Heat Loads (Peak)</h4>
+                                        <ul class="list-disc list-inside space-y-1 text-gray-600">
+                                            <li>Q_solar: <span id="q_solar" class="font-medium text-gray-900">-- W</span></li>
+                                            <li>Q_albedo: <span id="q_albedo" class="font-medium text-gray-900">-- W</span></li>
+                                            <li>Q_earth_ir: <span id="q_ir" class="font-medium text-gray-900">-- W</span></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <hr/>
+                                <!-- Energy Balance Insight -->
+                                <div>
+                                    <h4 class="text-lg font-semibold text-gray-700 mb-2">Energy Balance at Transient Peaks</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <table class="w-full text-sm text-left text-gray-500">
+                                            <caption class="p-2 text-base font-semibold text-gray-700 bg-gray-50 rounded-t-lg">At Max Temp (Hot)</caption>
+                                            <tbody>
+                                                <tr class="border-b"><th scope="row" class="px-3 py-2">Q_In (Env + Power)</th><td class="px-3 py-2 font-medium text-gray-900" id="eb_hot_in">-- W</td></tr>
+                                                <tr class="border-b"><th scope="row" class="px-3 py-2">Q_Out (Rad + Cond)</th><td class="px-3 py-2 font-medium text-gray-900" id="eb_hot_out">-- W</td></tr>
+                                                <tr class="bg-gray-50"><th scope="row" class="px-3 py-2 font-bold">Q_Net (m*Cp*dT/dt)</th><td class="px-3 py-2 font-bold text-gray-900" id="eb_hot_net">-- W</td></tr>
+                                            </tbody>
+                                        </table>
+                                        <table class="w-full text-sm text-left text-gray-500">
+                                            <caption class="p-2 text-base font-semibold text-gray-700 bg-gray-50 rounded-t-lg">At Min Temp (Cold)</caption>
+                                            <tbody>
+                                                <tr class="border-b"><th scope="row" class="px-3 py-2">Q_In (Env + Power)</th><td class="px-3 py-2 font-medium text-gray-900" id="eb_cold_in">-- W</td></tr>
+                                                <tr class="border-b"><th scope="row" class="px-3 py-2">Q_Out (Rad + Cond)</th><td class="px-3 py-2 font-medium text-gray-900" id="eb_cold_out">-- W</td></tr>
+                                                <tr class="bg-gray-50"><th scope="row" class="px-3 py-2 font-bold">Q_Net (m*Cp*dT/dt)</th><td class="px-3 py-2 font-bold text-gray-900" id="eb_cold_net">-- W</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Steady-State Content -->
+                            <div id="content-ss" class="tab-panel hidden">
+                                <p class="text-sm text-gray-600 mb-4">These are the theoretical temperatures the payload would reach if it stayed in the hot or cold condition *forever* (dT/dt = 0). They represent the absolute bounds of the analysis.</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="bg-gray-50 border p-4 rounded-lg">
+                                        <h4 class="font-semibold text-red-600">Max Hot Steady-State</h4>
+                                        <p class="text-sm text-gray-500">(Full Sun, Hot Case Inputs)</p>
+                                        <p id="t_ss_hot" class="text-2xl font-bold text-gray-900 mt-1">--.- °</p>
+                                    </div>
+                                    <div class="bg-gray-50 border p-4 rounded-lg">
+                                        <h4 class="font-semibold text-blue-600">Min Cold Steady-State</h4>
+                                        <p class="text-sm text-gray-500">(Full Eclipse, Cold Case Inputs)</p>
+                                        <p id="t_ss_cold" class="text-2xl font-bold text-gray-900 mt-1">--.- °</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Report Content -->
+                            <div id="content-report" class="tab-panel hidden">
+                                <button id="copy_report" class="mb-4 w-full md:w-auto bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-all">Copy Report to Clipboard</button>
+                                <span id="copy_feedback" class="ml-2 text-green-600 font-medium"></span>
+                                <textarea id="report_text" rows="20" class="w-full font-mono text-sm bg-gray-50 border-gray-300 rounded-md p-4"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === CONSTANTS ===
+        const SIGMA = 5.670374e-8; // Stefan-Boltzmann constant (W/m²K⁴)
+        const R_EARTH = 6371000;   // Radius of Earth (m)
+        const GM_EARTH = 3.986004e14; // Earth's gravitational parameter (m³/s²)
+        const KELVIN_OFFSET = 273.15;
+
+        // === DOM ELEMENTS ===
+        const runButton = document.getElementById('run_analysis');
+        const resultsContainer = document.getElementById('results_container');
+        const messageBox = document.getElementById('message_box');
+        const messageText = document.getElementById('message_text');
+        const chartCanvas = document.getElementById('transient_chart');
+        const outputUnitSelector = document.getElementById('output_unit_selector');
+        const copyReportButton = document.getElementById('copy_report');
+        const copyFeedback = document.getElementById('copy_feedback');
+
+        // === CACHE ===
+        let transientChart = null;
+        let cached_inputs = null;
+        let cached_calculations = null;
+
+        // === TAB HANDLING ===
+        const tabs = document.querySelectorAll('.tab-link');
+        const panels = document.querySelectorAll('.tab-panel');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                tabs.forEach(t => t.classList.remove('text-blue-600', 'border-blue-500'));
+                panels.forEach(p => p.classList.add('hidden'));
+                tab.classList.add('text-blue-600', 'border-blue-500');
+                const targetPanel = document.getElementById('content-' + tab.id.split('-')[1]);
+                if (targetPanel) targetPanel.classList.remove('hidden');
+            });
+        });
+
+        // === EVENT LISTENERS ===
+        runButton.addEventListener('click', () => {
+            try {
+                messageBox.classList.add('hidden');
+                resultsContainer.classList.add('hidden');
+
+                // 1. Get and CONVERT all inputs to SI units (kg, m, J/kg-K, K, W, °C)
+                cached_inputs = getInputs();
+
+                // 2. Validate Inputs
+                validateInputs(cached_inputs);
+
+                // 3. Perform Calculations (Physics engine runs in SI)
+                cached_calculations = performCalculations(cached_inputs);
+                
+                // 4. Update UI (converts SI results to selected output units)
+                updateUI(cached_inputs, cached_calculations);
+
+                resultsContainer.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Analysis Error:", error);
+                messageText.textContent = error.message;
+                messageBox.classList.remove('hidden');
+                resultsContainer.classList.add('hidden');
+            }
+        });
+
+        // Re-render outputs when unit selection changes
+        outputUnitSelector.addEventListener('change', () => {
+            if (cached_calculations) {
+                updateUI(cached_inputs, cached_calculations);
+            }
+        });
+
+        // === SI UNIT CONVERSION & INPUT GATHERING ===
+        function getInputs() {
+            const i = {};
+
+            // Payload
+            i.payloadName = document.getElementById('payload_name').value || "N/A";
+            const mass_val = parseFloat(document.getElementById('mass').value);
+            const mass_unit = document.getElementById('mass_unit').value;
+            i.mass = (mass_unit === 'g') ? (mass_val / 1000.0) : mass_val;
+            
+            const cp_val = parseFloat(document.getElementById('cp').value);
+            const cp_unit = document.getElementById('cp_unit').value;
+            i.cp = (cp_unit === 'J/g-C') ? (cp_val * 1000.0) : cp_val; // 1 J/g-C = 1000 J/kg-K
+            
+            // Orbital
+            const alt_val = parseFloat(document.getElementById('altitude').value);
+            const alt_unit = document.getElementById('altitude_unit').value;
+            i.altitude_km = (alt_unit === 'mi') ? (alt_val * 1.60934) : alt_val;
+            i.eclipse_min = parseFloat(document.getElementById('eclipse_dur').value);
+
+            // Thermal
+            i.alpha = parseFloat(document.getElementById('alpha').value);
+            i.epsilon = parseFloat(document.getElementById('epsilon').value);
+            
+            const area_sun_val = parseFloat(document.getElementById('a_sun').value);
+            const area_sun_unit = document.getElementById('a_sun_unit').value;
+            i.a_sun = convertAreaToM2(area_sun_val, area_sun_unit);
+
+            const area_earth_val = parseFloat(document.getElementById('a_earth').value);
+            const area_earth_unit = document.getElementById('a_earth_unit').value;
+            i.a_earth = convertAreaToM2(area_earth_val, area_earth_unit);
+
+            const area_rad_val = parseFloat(document.getElementById('a_rad').value);
+            const area_rad_unit = document.getElementById('a_rad_unit').value;
+            i.a_rad = convertAreaToM2(area_rad_val, area_rad_unit);
+
+            // Helper to convert temp inputs to Celsius for internal use
+            const convertTempToC = (val, unit) => {
+                if (unit === 'F') return (val - 32) * 5 / 9;
+                if (unit === 'K') return val - KELVIN_OFFSET;
+                return val; // Already C
+            };
+            
+            // Cases & Loads
+            i.power_hot = parseFloat(document.getElementById('power_hot').value);
+            const mount_hot_val = parseFloat(document.getElementById('mount_temp_hot').value);
+            const mount_hot_unit = document.getElementById('mount_temp_hot_unit').value;
+            i.mount_temp_hot_c = convertTempToC(mount_hot_val, mount_hot_unit);
+            i.mount_temp_hot_k = i.mount_temp_hot_c + KELVIN_OFFSET;
+            
+            i.power_cold = parseFloat(document.getElementById('power_cold').value);
+            const mount_cold_val = parseFloat(document.getElementById('mount_temp_cold').value);
+            const mount_cold_unit = document.getElementById('mount_temp_cold_unit').value;
+            i.mount_temp_cold_c = convertTempToC(mount_cold_val, mount_cold_unit);
+            i.mount_temp_cold_k = i.mount_temp_cold_c + KELVIN_OFFSET;
+
+            i.gc = parseFloat(document.getElementById('gc').value);
+            
+            // Operational Limits
+            const op_unit = document.getElementById('t_op_unit').value;
+            const op_max_val = parseFloat(document.getElementById('t_op_max').value);
+            const op_min_val = parseFloat(document.getElementById('t_op_min').value);
+            i.op_max_c = convertTempToC(op_max_val, op_unit);
+            i.op_min_c = convertTempToC(op_min_val, op_unit);
+            i.op_unit = op_unit; // Store for report
+            i.op_max_val = op_max_val; // Store for report
+            i.op_min_val = op_min_val; // Store for report
+
+            // Environment
+            i.g_s = parseFloat(document.getElementById('g_s').value);
+            i.albedo = parseFloat(document.getElementById('albedo').value);
+            i.e_ir = parseFloat(document.getElementById('e_ir').value);
+            
+            // Constants
+            i.sigma = SIGMA;
+            i.r_earth = R_EARTH;
+            i.gm_earth = GM_EARTH;
+            i.kelvin_offset = KELVIN_OFFSET;
+            
+            return i;
+        }
+
+        function convertAreaToM2(val, unit) {
+            if (unit === 'cm2') return val / 10000.0;
+            if (unit === 'ft2') return val * 0.092903;
+            return val; // Already m2
+        }
+
+        function validateInputs(i) {
+            for (const key in i) {
+                if (typeof i[key] === 'number' && isNaN(i[key])) {
+                    throw new Error(`Invalid input for "${key}". Please enter a valid number.`);
+                }
+            }
+            if (i.mass <= 0) throw new Error("Mass must be positive.");
+            if (i.cp <= 0) throw new Error("Specific Heat (C_p) must be positive.");
+            if (i.altitude_km <= 100) throw new Error("Altitude must be > 100 km to be considered 'in orbit'.");
+            if (i.alpha < 0 || i.alpha > 1) throw new Error("Absorptivity (α) must be between 0 and 1.");
+            if (i.epsilon < 0 || i.epsilon > 1) throw new Error("Emissivity (ε) must be between 0 and 1.");
+        }
+
+        // === PHYSICS ENGINE (All calcs in SI) ===
+        function performCalculations(i) {
+            // === Orbital Calcs ===
+            const r_orbit_m = (i.altitude_km * 1000) + i.r_earth;
+            const orb_period_s = 2 * Math.PI * Math.sqrt(Math.pow(r_orbit_m, 3) / i.gm_earth);
+            const eclipse_dur_s = i.eclipse_min * 60;
+
+            if (eclipse_dur_s >= orb_period_s) {
+                throw new Error("Eclipse duration cannot be longer than the orbital period.");
+            }
+            
+            const sunlit_dur_s = orb_period_s - eclipse_dur_s;
+            const vf_earth = Math.pow(i.r_earth / r_orbit_m, 2);
+
+            // === External Heat Loads (Peak) ===
+            const q_solar = i.g_s * i.alpha * i.a_sun;
+            const q_albedo = i.g_s * i.albedo * i.alpha * i.a_earth * vf_earth;
+            const q_ir = i.e_ir * i.epsilon * i.a_earth * vf_earth;
+
+            // === Steady-State Solver ===
+            const solveSteadyState = (isSunlit, q_internal, t_mount_k) => {
+                const q_in_external = isSunlit ? (q_solar + q_albedo + q_ir) : q_ir;
+                const q_in_total = q_in_external + q_internal;
+                
+                let t_guess = 293.15; // Start guess at 20°C
+                for (let iter = 0; iter < 20; iter++) {
+                    const f_t = q_in_total - (i.sigma * i.epsilon * i.a_rad * Math.pow(t_guess, 4)) - (i.gc * (t_guess - t_mount_k));
+                    const df_dt = -(4 * i.sigma * i.epsilon * i.a_rad * Math.pow(t_guess, 3)) - i.gc;
+                    const t_new = t_guess - (f_t / df_dt);
+                    if (Math.abs(t_new - t_guess) < 0.001) return t_new; // Converged
+                    t_guess = t_new;
+                }
+                return t_guess; // Return last guess
+            };
+
+            const t_ss_hot_k = solveSteadyState(true, i.power_hot, i.mount_temp_hot_k);
+            const t_ss_cold_k = solveSteadyState(false, i.power_cold, i.mount_temp_cold_k);
+
+            // === Transient Solver ===
+            const thermal_mass = i.mass * i.cp;
+            const time_step_s = 10; // 10 second time step
+            const num_orbits = 10;
+            const total_time_s = num_orbits * orb_period_s;
+            
+            let t_current = 0;
+            let T_current_k = 293.15; // Start at 20°C
+            const transientData = [];
+
+            const get_dT_dt = (T_k, isSunlit, power, t_mount_k) => {
+                const q_in_external = isSunlit ? (q_solar + q_albedo + q_ir) : q_ir;
+                const q_in_total = q_in_external + power;
+                const q_out_rad = i.sigma * i.epsilon * i.a_rad * Math.pow(T_k, 4);
+                const q_out_cond = i.gc * (T_k - t_mount_k);
+                const q_out_total = q_out_rad + q_out_cond;
+                return (q_in_total - q_out_total) / thermal_mass;
+            };
+
+            while (t_current < total_time_s) {
+                const time_in_orbit_s = t_current % orb_period_s;
+                const isSunlit = time_in_orbit_s < sunlit_dur_s;
+
+                const power = isSunlit ? i.power_hot : i.power_cold;
+                const t_mount_k = isSunlit ? i.mount_temp_hot_k : i.mount_temp_cold_k;
+
+                const dT_dt = get_dT_dt(T_current_k, isSunlit, power, t_mount_k);
+                T_current_k = T_current_k + (dT_dt * time_step_s);
+                
+                transientData.push({
+                    t: t_current / 60, // Store time in minutes
+                    T: T_current_k - i.kelvin_offset // Store temp in °C
+                });
+                t_current += time_step_s;
+            }
+
+            // === Post-Processing & Insights ===
+            const last_orbit_samples = Math.floor(orb_period_s / time_step_s);
+            const last_orbit_data = transientData.slice(-last_orbit_samples);
+            const T_max_c = Math.max(...last_orbit_data.map(d => d.T));
+            const T_min_c = Math.min(...last_orbit_data.map(d => d.T));
+
+            // Margin Calcs
+            const margin_hot = i.op_max_c - T_max_c;
+            const margin_cold = T_min_c - i.op_min_c;
+            
+            // Thermal Time Constant (Linearized around 20°C)
+            const g_rad_eff = 4 * i.epsilon * i.sigma * i.a_rad * Math.pow(293.15, 3);
+            const tau_s = (i.mass * i.cp) / (g_rad_eff + i.gc);
+            const time_constant_min = tau_s / 60.0;
+
+            // Energy Balance at Peaks
+            const T_max_k = T_max_c + i.kelvin_offset;
+            const eb_hot_in = q_solar + q_albedo + q_ir + i.power_hot;
+            const eb_hot_out_rad = i.sigma * i.epsilon * i.a_rad * Math.pow(T_max_k, 4);
+            const eb_hot_out_cond = i.gc * (T_max_k - i.mount_temp_hot_k);
+            const eb_hot_out = eb_hot_out_rad + eb_hot_out_cond;
+            const eb_hot_net = eb_hot_in - eb_hot_out;
+
+            const T_min_k = T_min_c + i.kelvin_offset;
+            const eb_cold_in = q_ir + i.power_cold; // No sun/albedo
+            const eb_cold_out_rad = i.sigma * i.epsilon * i.a_rad * Math.pow(T_min_k, 4);
+            const eb_cold_out_cond = i.gc * (T_min_k - i.mount_temp_cold_k);
+            const eb_cold_out = eb_cold_out_rad + eb_cold_out_cond;
+            const eb_cold_net = eb_cold_in - eb_cold_out;
+
+            return {
+                orbitalParams: { period_s: orb_period_s, eclipse_s: eclipse_dur_s, sunlit_s: sunlit_dur_s, vf_earth: vf_earth },
+                heatLoads: { q_solar: q_solar, q_albedo: q_albedo, q_ir: q_ir },
+                steadyState: { t_ss_hot_k: t_ss_hot_k, t_ss_cold_k: t_ss_cold_k },
+                transient: { T_max_c: T_max_c, T_min_c: T_min_c, data: transientData },
+                insights: {
+                    margins: { hot: margin_hot, cold: margin_cold },
+                    time_constant_min: time_constant_min,
+                    energy_balance: {
+                        hot: { q_in: eb_hot_in, q_out: eb_hot_out, q_net: eb_hot_net },
+                        cold: { q_in: eb_cold_in, q_out: eb_cold_out, q_net: eb_cold_net }
+                    }
+                }
+            };
+        }
+
+        // === UI DISPLAY (Converts SI to Output Units) ===
+        function updateUI(i, c) {
+            const output_unit = outputUnitSelector.value;
+
+            // Temp conversion helper
+            const convertTemp = (temp_c, unit) => {
+                if (unit === 'F') return (temp_c * 9 / 5) + 32;
+                if (unit === 'K') return temp_c + KELVIN_OFFSET;
+                return temp_c; // Already C
+            };
+            const unit_suffix = ` °${output_unit}`;
+
+            // === Summary Cards ===
+            const t_max_out = convertTemp(c.transient.T_max_c, output_unit);
+            const t_min_out = convertTemp(c.transient.T_min_c, output_unit);
+            const t_max_limit_out = convertTemp(i.op_max_c, output_unit);
+            const t_min_limit_out = convertTemp(i.op_min_c, output_unit);
+            
+            // Margins are deltas, so C = K. Need to convert delta for F.
+            const delta_f_factor = (output_unit === 'F') ? 1.8 : 1.0;
+            const margin_hot_out = c.insights.margins.hot * delta_f_factor;
+            const margin_cold_out = c.insights.margins.cold * delta_f_factor;
+
+            document.getElementById('t_max').textContent = t_max_out.toFixed(1) + unit_suffix;
+            document.getElementById('t_max_limit').textContent = t_max_limit_out.toFixed(1) + unit_suffix;
+            document.getElementById('t_min').textContent = t_min_out.toFixed(1) + unit_suffix;
+            document.getElementById('t_min_limit').textContent = t_min_limit_out.toFixed(1) + unit_suffix;
+            
+            const marginHotEl = document.getElementById('t_max_margin');
+            marginHotEl.textContent = margin_hot_out.toFixed(1) + unit_suffix;
+            marginHotEl.classList.toggle('text-red-600', c.insights.margins.hot < 0);
+            marginHotEl.classList.toggle('text-green-600', c.insights.margins.hot >= 0);
+
+            const marginColdEl = document.getElementById('t_min_margin');
+            marginColdEl.textContent = margin_cold_out.toFixed(1) + unit_suffix;
+            marginColdEl.classList.toggle('text-red-600', c.insights.margins.cold < 0);
+            marginColdEl.classList.toggle('text-green-600', c.insights.margins.cold >= 0);
+
+            // === Tab 1: Summary & Insights ===
+            document.getElementById('orb_period').textContent = `${(c.orbitalParams.period_s / 60).toFixed(1)} min`;
+            document.getElementById('sun_time').textContent = `${(c.orbitalParams.sunlit_s / 60).toFixed(1)} min`;
+            document.getElementById('eclipse_time').textContent = `${(c.orbitalParams.eclipse_s / 60).toFixed(1)} min`;
+            document.getElementById('vf_earth').textContent = `${c.orbitalParams.vf_earth.toFixed(3)}`;
+            document.getElementById('time_constant').textContent = `${c.insights.time_constant_min.toFixed(1)} min`;
+            
+            document.getElementById('q_solar').textContent = `${c.heatLoads.q_solar.toFixed(2)} W`;
+            document.getElementById('q_albedo').textContent = `${c.heatLoads.q_albedo.toFixed(2)} W`;
+            document.getElementById('q_ir').textContent = `${c.heatLoads.q_ir.toFixed(2)} W`;
+
+            document.getElementById('eb_hot_in').textContent = `${c.insights.energy_balance.hot.q_in.toFixed(2)} W`;
+            document.getElementById('eb_hot_out').textContent = `${c.insights.energy_balance.hot.q_out.toFixed(2)} W`;
+            document.getElementById('eb_hot_net').textContent = `${c.insights.energy_balance.hot.q_net.toFixed(2)} W`;
+            document.getElementById('eb_cold_in').textContent = `${c.insights.energy_balance.cold.q_in.toFixed(2)} W`;
+            document.getElementById('eb_cold_out').textContent = `${c.insights.energy_balance.cold.q_out.toFixed(2)} W`;
+            document.getElementById('eb_cold_net').textContent = `${c.insights.energy_balance.cold.q_net.toFixed(2)} W`;
+            
+            // === Tab 2: Steady-State ===
+            document.getElementById('t_ss_hot').textContent = `${convertTemp(c.steadyState.t_ss_hot_k - KELVIN_OFFSET, output_unit).toFixed(1)} ${unit_suffix}`;
+            document.getElementById('t_ss_cold').textContent = `${convertTemp(c.steadyState.t_ss_cold_k - KELVIN_OFFSET, output_unit).toFixed(1)} ${unit_suffix}`;
+
+            // === Tab 3: Report ===
+            generateReport(i, c); // Generate report with SI (C) and output units
+
+            // === Plot ===
+            const chartData = c.transient.data.map(d => ({
+                t: d.t,
+                T: convertTemp(d.T, output_unit)
+            }));
+            
+            if (transientChart) {
+                transientChart.destroy();
+            }
+            transientChart = new Chart(chartCanvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: `Payload Temperature (°${output_unit})`,
+                        data: chartData,
+                        parsing: { xAxisKey: 't', yAxisKey: 'T' },
+                        borderColor: 'rgb(37, 99, 235)',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        pointRadius: 0,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { type: 'linear', title: { display: true, text: 'Time (minutes)' } },
+                        y: { title: { display: true, text: `Temperature (°${output_unit})` } }
+                    },
+                    plugins: { tooltip: { mode: 'index', intersect: false } }
+                }
+            });
+        }
+
+        function generateReport(i, c) {
+            const output_unit = outputUnitSelector.value;
+            const unit_suffix = ` °${output_unit}`;
+            
+            // Temp conversion helper
+            const convertTemp = (temp_c, unit) => {
+                if (unit === 'F') return (temp_c * 9 / 5) + 32;
+                if (unit === 'K') return temp_c + KELVIN_OFFSET;
+                return temp_c; // Already C
+            };
+            const delta_f_factor = (output_unit === 'F') ? 1.8 : 1.0;
+
+            const t_max_out = convertTemp(c.transient.T_max_c, output_unit);
+            const t_min_out = convertTemp(c.transient.T_min_c, output_unit);
+            const t_max_limit_out = convertTemp(i.op_max_c, output_unit);
+            const t_min_limit_out = convertTemp(i.op_min_c, output_unit);
+            const margin_hot_out = c.insights.margins.hot * delta_f_factor;
+            const margin_cold_out = c.insights.margins.cold * delta_f_factor;
+            
+            const t_ss_hot_out = convertTemp(c.steadyState.t_ss_hot_k - KELVIN_OFFSET, output_unit);
+            const t_ss_cold_out = convertTemp(c.steadyState.t_ss_cold_k - KELVIN_OFFSET, output_unit);
+
+            const report = `
+=====================================================
+  1-NODE THERMAL ANALYSIS REPORT
+=====================================================
+Payload: ${i.payloadName}
+Analysis Date: ${new Date().toUTCString()}
+
+-----------------------------------------------------
+  1. EXECUTIVE SUMMARY (Units: ${unit_suffix})
+-----------------------------------------------------
+This analysis simulates the orbital temperature of the payload based on the provided 1-node model.
+
+* Simulated Max Temperature:   ${t_max_out.toFixed(2)} ${unit_suffix}
+* Max Operational Limit:     ${t_max_limit_out.toFixed(2)} ${unit_suffix}
+* HOT MARGIN:                ${margin_hot_out.toFixed(2)} ${unit_suffix} (${c.insights.margins.hot >= 0 ? 'PASS' : 'FAIL'})
+
+* Simulated Min Temperature:   ${t_min_out.toFixed(2)} ${unit_suffix}
+* Min Operational Limit:     ${t_min_limit_out.toFixed(2)} ${unit_suffix}
+* COLD MARGIN:               ${margin_cold_out.toFixed(2)} ${unit_suffix} (${c.insights.margins.cold >= 0 ? 'PASS' : 'FAIL'})
+
+-----------------------------------------------------
+  2. KEY INSIGHTS
+-----------------------------------------------------
+* Thermal Time Constant (τ): ${c.insights.time_constant_min.toFixed(2)} minutes
+  (Linearized estimate of thermal response time)
+
+* Energy Balance at T_max (${t_max_out.toFixed(1)} ${unit_suffix}):
+    * Q_In (Env + Power):     ${c.insights.energy_balance.hot.q_in.toFixed(2)} W
+    * Q_Out (Rad + Cond):     ${c.insights.energy_balance.hot.q_out.toFixed(2)} W
+    * Q_Net (m*Cp*dT/dt):     ${c.insights.energy_balance.hot.q_net.toFixed(2)} W
+
+* Energy Balance at T_min (${t_min_out.toFixed(1)} ${unit_suffix}):
+    * Q_In (Env + Power):     ${c.insights.energy_balance.cold.q_in.toFixed(2)} W
+    * Q_Out (Rad + Cond):     ${c.insights.energy_balance.cold.q_out.toFixed(2)} W
+    * Q_Net (m*Cp*dT/dt):     ${c.insights.energy_balance.cold.q_net.toFixed(2)} W
+
+-----------------------------------------------------
+  3. ANALYSIS CASES
+-----------------------------------------------------
+* HOT CASE:
+    * Internal Power: ${i.power_hot} W
+    * Mount Temperature: ${i.mount_temp_hot_c.toFixed(1)} °C
+* COLD CASE:
+    * Internal Power: ${i.power_cold} W
+    * Mount Temperature: ${i.mount_temp_cold_c.toFixed(1)} °C
+* OPERATIONAL LIMITS:
+    * Max: ${i.op_max_val} °${i.op_unit} (${i.op_max_c.toFixed(1)} °C)
+    * Min: ${i.op_min_val} °${i.op_unit} (${i.op_min_c.toFixed(1)} °C)
+
+-----------------------------------------------------
+  4. ORBITAL & ENVIRONMENTAL
+-----------------------------------------------------
+* Altitude: ${i.altitude_km.toFixed(0)} km
+* Orbital Period: ${(c.orbitalParams.period_s / 60).toFixed(2)} minutes
+* Sunlit / Eclipse: ${(c.orbitalParams.sunlit_s / 60).toFixed(2)} min / ${i.eclipse_min.toFixed(2)} min
+* View Factor to Earth (F_e): ${c.orbitalParams.vf_earth.toFixed(3)}
+* Solar / Albedo / Earth IR: ${i.g_s} / ${i.albedo} / ${i.e_ir} (W/m², factor, W/m²)
+
+-----------------------------------------------------
+  5. PAYLOAD 1-NODE PROPERTIES (SI Units)
+-----------------------------------------------------
+* Mass (m): ${i.mass} kg
+* Specific Heat (C_p): ${i.cp} J/kg-K
+* Thermal Mass (m * C_p): ${(i.mass * i.cp).toFixed(0)} J/K
+* Avg. Solar Absorptivity (α): ${i.alpha}
+* Avg. IR Emissivity (ε): ${i.epsilon}
+* Avg. Area to Sun (A_sun): ${i.a_sun.toFixed(4)} m²
+* Avg. Area to Earth (A_earth): ${i.a_earth.toFixed(4)} m²
+* Total Radiating Area (A_rad): ${i.a_rad.toFixed(4)} m²
+* Conduction Coupling (G_c): ${i.gc} W/K
+
+-----------------------------------------------------
+  6. PEAK LOADS & STEADY-STATE BOUNDS
+-----------------------------------------------------
+* Q_solar: ${c.heatLoads.q_solar.toFixed(2)} W
+* Q_albedo: ${c.heatLoads.q_albedo.toFixed(2)} W
+* Q_earth_IR: ${c.heatLoads.q_ir.toFixed(2)} W
+
+* SS Hot Bound (Full Sun, Hot):   ${t_ss_hot_out.toFixed(2)} ${unit_suffix}
+* SS Cold Bound (Eclipse, Cold): ${t_ss_cold_out.toFixed(2)} ${unit_suffix}
+
+-----------------------------------------------------
+  END OF REPORT
+-----------------------------------------------------
+`;
+            document.getElementById('report_text').value = report.trim();
+        }
+
+        // === Copy Report Button ===
+        copyReportButton.addEventListener('click', () => {
+            const reportTextArea = document.getElementById('report_text');
+            reportTextArea.select();
+            let feedbackMsg = 'Copied!';
+            try {
+                // Use execCommand as a fallback for clipboard API
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Failed to copy report: ', err);
+                feedbackMsg = 'Failed to copy. Please copy manually.';
+            }
+            copyFeedback.textContent = feedbackMsg;
+            setTimeout(() => { copyFeedback.textContent = ''; }, 2500);
+        });
+
+        // Run analysis on load with default values
+        window.onload = () => {
+            runButton.click();
+        };
+
+    </script>
+</body>
+</html>
